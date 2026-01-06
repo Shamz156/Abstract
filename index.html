@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Abstract Motion Identity</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  background: black;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* BACKGROUND PHOTO */
+.background {
+  position: absolute;
+  inset: 0;
+  background-image: url("./me.jpg"); /* YOUR PHOTO (same folder as index.html) */
+  background-size: cover;
+  background-position: center;
+  filter: contrast(1.4) saturate(0.8) grayscale(0.8);
+  animation: flash 1.8s infinite;
+}
+
+/* VHS NOISE */
+.noise {
+  position: absolute;
+  inset: 0;
+  background: url("https://grainy-gradients.vercel.app/noise.svg");
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* TEXT */
+.title {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-family: monospace;
+  letter-spacing: 4px;
+  opacity: 0.7;
+  z-index: 4;
+}
+
+/* FAST FLICKER (90s / METAL) */
+@keyframes flash {
+  0% { opacity: 0; transform: translate(0,0); }
+  10% { opacity: 1; }
+  20% { opacity: 0.4; }
+  30% { opacity: 1; }
+  40% { opacity: 0; }
+  55% { opacity: 1; transform: translate(-10px, 5px); }
+  70% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="background"></div>
+<div class="noise"></div>
+
+<!-- BUBBLES OVERLAY -->
+<svg id="bubbleLayer"
+     width="100%" height="100%"
+     viewBox="0 0 100 100"
+     preserveAspectRatio="none"
+     style="position:fixed; inset:0; z-index:3;">
+</svg>
+
+<div class="title">IDENTITY / GLITCH / MOTION</div>
+
+<script>
+(() => {
+  const svg = document.getElementById("bubbleLayer");
+  const rand = (min, max) => Math.random() * (max - min) + min;
+
+  const bubbles = [];
+  const COUNT = 6;
+
+  function makeBubble() {
+    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+
+    const r0 = rand(2.2, 4.8);
+    const x0 = rand(6, 94);
+    const y0 = rand(102, 140);
+    const speed = rand(4.5, 10.5) / 100;
+    const driftAmp = rand(1.2, 3.2);
+    const driftSpeed = rand(0.6, 1.6);
+    const baseOpacity = rand(0.55, 0.85);
+
+    c.setAttribute("cx", x0);
+    c.setAttribute("cy", y0);
+    c.setAttribute("r", r0);
+    c.setAttribute("fill", "white");
+    c.setAttribute("fill-opacity", baseOpacity);
+    c.setAttribute("cursor", "pointer");
+
+    c.setAttribute("stroke", "white");
+    c.setAttribute("stroke-opacity", baseOpacity);
+    c.setAttribute("stroke-width", "0.22");
+
+    c.__state = {
+      x: x0,
+      y: y0,
+      rBase: r0,
+      speed,
+      driftAmp,
+      driftSpeed,
+      opacity: baseOpacity,
+      t: rand(0, Math.PI * 2),
+      popping: false,
+      popStart: 0
+    };
+
+    c.addEventListener("click", (e) => {
+      e.stopPropagation();
+      popBubble(c);
+    });
+
+    svg.appendChild(c);
+    bubbles.push(c);
+  }
+
+  function resetBubble(c) {
+    const s = c.__state;
+    s.x = rand(6, 94);
+    s.y = rand(104, 135);
+    s.rBase = rand(2.2, 4.8);
+    s.speed = rand(4.5, 10.5) / 100;
+    s.driftAmp = rand(1.2, 3.2);
+    s.driftSpeed = rand(0.6, 1.6);
+    s.opacity = rand(0.55, 0.85);
+    s.t = rand(0, Math.PI * 2);
+    s.popping = false;
+    s.popStart = 0;
+
+    c.setAttribute("fill", "white");
+    c.setAttribute("stroke", "white");
+    c.setAttribute("fill-opacity", s.opacity);
+    c.setAttribute("stroke-opacity", s.opacity);
+    c.setAttribute("r", s.rBase);
+    c.setAttribute("cx", s.x.toFixed(2));
+    c.setAttribute("cy", s.y.toFixed(2));
+  }
+
+  function popBubble(c) {
+    const s = c.__state;
+    if (s.popping) return;
+    s.popping = true;
+    s.popStart = performance.now();
+
+    // stay white on pop
+    c.setAttribute("fill", "white");
+    c.setAttribute("stroke", "white");
+  }
+
+  for (let i = 0; i < COUNT; i++) makeBubble();
+
+  let last = performance.now();
+  function tick(now) {
+    const dt = Math.min(40, now - last);
+    last = now;
+    const k = dt / 16;
+
+    for (const c of bubbles) {
+      const s = c.__state;
+
+      // Always move upward (even while popping)
+      s.y -= s.speed * k * 2.2;
+      s.t += s.driftSpeed * 0.02 * k;
+
+      // Wrap
+      if (s.y < -12) resetBubble(c);
+
+      // Update position every frame
+      const cx = (s.x + Math.sin(s.t) * s.driftAmp).toFixed(2);
+      const cy = s.y.toFixed(2);
+      c.setAttribute("cx", cx);
+      c.setAttribute("cy", cy);
+
+      if (!s.popping) {
+        c.setAttribute("r", s.rBase.toFixed(2));
+        c.setAttribute("fill-opacity", s.opacity.toFixed(2));
+        c.setAttribute("stroke-opacity", s.opacity.toFixed(2));
+      } else {
+        const t = (now - s.popStart) / 380;
+        if (t >= 1) {
+          resetBubble(c);
+        } else {
+          const ease = 1 - Math.pow(1 - t, 3);
+          const rPop = s.rBase * (1 + ease * 1.6);
+          const op = s.opacity * (1 - ease);
+
+          c.setAttribute("r", rPop.toFixed(2));
+          c.setAttribute("fill-opacity", Math.max(0, op).toFixed(2));
+          c.setAttribute("stroke-opacity", Math.max(0, op).toFixed(2));
+        }
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+})();
+</script>
+
+</body>
+</html>
